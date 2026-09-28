@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+"""Painel web local em http://127.0.0.1:8765 com stream (SSE) do events.jsonl."""
+import http.server, os, time
+HOME = os.path.expanduser("~/.kiro-monitor"); LOG = f"{HOME}/events.jsonl"
+class H(http.server.BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def do_GET(self):
+        if self.path == "/events":
+            self.send_response(200); self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Cache-Control", "no-cache"); self.end_headers()
+            with open(LOG) as f:
+                lines = f.readlines()[-500:]
+                try:
+                    for l in lines: self.wfile.write(f"data: {l.strip()}\n\n".encode())
+                    self.wfile.flush()
+                    while True:
+                        l = f.readline()
+                        if l: self.wfile.write(f"data: {l.strip()}\n\n".encode()); self.wfile.flush()
+                        else: time.sleep(0.3)
+                except (BrokenPipeError, ConnectionResetError): return
+        else:
+            body = open(f"{HOME}/web/index.html", "rb").read()
+            self.send_response(200); self.send_header("Content-Type", "text/html; charset=utf-8"); self.end_headers()
+            self.wfile.write(body)
+open(LOG, "a").close()
+http.server.ThreadingHTTPServer(("127.0.0.1", 8765), H).serve_forever()

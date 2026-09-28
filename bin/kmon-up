@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Sobe os coletores: kmon-up [start|stop|status]
+D=~/.kiro-monitor; B=$D/bin; mkdir -p $D/run
+case "${1:-start}" in
+start)
+  pgrep -f "$B/kmon-sessions" >/dev/null || nohup $B/kmon-sessions >$D/run/sessions.log 2>&1 &
+  pgrep -f "$B/kmon-web" >/dev/null || nohup $B/kmon-web >$D/run/web.log 2>&1 &
+  pgrep -f "$B/kmon-exec" >/dev/null || sudo -b env KMON_HOME=$D $B/kmon-exec >$D/run/exec.log 2>&1
+  echo "Monitor ativo → web: http://127.0.0.1:8765  | terminal: kiro-monitor" ;;
+stop) pkill -f "$B/kmon-sessions"; pkill -f "$B/kmon-web"; sudo pkill -f "$B/kmon-exec"; sudo pkill -f execsnoop-bpfcc; echo parado ;;
+status) for s in sessions web exec; do pgrep -f "$B/kmon-$s" >/dev/null && echo "$s: ativo" || echo "$s: parado"; done ;;
+esac

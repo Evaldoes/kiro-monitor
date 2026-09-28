@@ -1,0 +1,18 @@
+#!/usr/bin/env python3
+"""Acompanha ~/.kiro/sessions/cli/*.jsonl e replica os eventos no log do monitor."""
+import glob, json, os, time
+LOG = os.path.expanduser("~/.kiro-monitor/events.jsonl")
+pos = {f: os.path.getsize(f) for f in glob.glob(os.path.expanduser("~/.kiro/sessions/cli/*.jsonl"))}
+while True:
+    for f in glob.glob(os.path.expanduser("~/.kiro/sessions/cli/*.jsonl")):
+        size = os.path.getsize(f)
+        if size <= pos.get(f, 0): pos[f] = min(pos.get(f, 0), size); continue
+        with open(f) as fh:
+            fh.seek(pos.get(f, 0)); chunk = fh.read(); pos[f] = fh.tell()
+        with open(LOG, "a") as out:
+            for line in chunk.splitlines():
+                try: e = json.loads(line)
+                except Exception: continue
+                out.write(json.dumps({"ts": time.time(), "layer": "kiro-session", "event": e.get("kind"),
+                    "session": os.path.basename(f).split(".")[0], "data": e.get("data")}, ensure_ascii=False) + "\n")
+    time.sleep(0.5)

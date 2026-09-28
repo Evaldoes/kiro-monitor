@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Painel de terminal: kiro-monitor [--all]  (sem --all mostra só novos eventos)
+LOG=~/.kiro-monitor/events.jsonl; touch "$LOG"
+n=0; [ "$1" = "--all" ] && n=+1
+tail -n "$n" -F "$LOG" | jq -r --unbuffered '
+  def c(k): {"claude":"\u001b[35m","kiro-hook":"\u001b[36m","kiro-session":"\u001b[34m","os-exec":"\u001b[33m"}[k] // "";
+  (.ts|floor|strftime("%H:%M:%S")) + " " + c(.layer) + ("[" + .layer + "]") + "\u001b[0m " + (.event // "") + " " +
+  (if .blocked then "\u001b[41m BLOQUEADO \u001b[0m " else "" end) +
+  ((.tool // "") + " " + ((.input // .args // .data // .prompt // "") | if type=="string" then . else tojson end))[0:220]'

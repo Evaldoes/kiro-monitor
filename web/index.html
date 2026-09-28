@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kiro Monitor</title>
+<style>
+:root{--bg:#f7f7f5;--fg:#1d1d1b;--mut:#6b6b66;--line:#e2e2dd;--card:#fff;--claude:#8a3ffc;--hook:#0f8a8a;--sess:#2d5bd8;--exec:#b7791f;--bad:#c62828}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--fg:#ecece8;--mut:#9a9a93;--line:#2c2c29;--card:#1c1c1a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 ui-sans-serif,system-ui,sans-serif}
+header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+h1{font-size:16px;margin:0 12px 0 0}label{display:flex;gap:4px;align-items:center;color:var(--mut)}
+input[type=search]{flex:1;min-width:160px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}
+#stats{color:var(--mut);font-variant-numeric:tabular-nums}
+main{padding:8px 16px}.ev{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--c);border-radius:6px;margin:6px 0;padding:6px 10px;cursor:pointer}
+.ev .h{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--mut)}.ev .l{color:var(--c);font-weight:600}
+.ev pre{margin:4px 0 0;white-space:pre-wrap;word-break:break-word;font:12px/1.4 ui-monospace,monospace;max-height:3.2em;overflow:hidden}
+.ev.open pre{max-height:none}.blk{background:var(--bad);color:#fff;padding:0 6px;border-radius:4px}
+</style></head><body>
+<header><h1>Kiro Monitor</h1>
+<label><input type="checkbox" data-l="claude" checked>Claude→Kiro</label>
+<label><input type="checkbox" data-l="kiro-hook" checked>Hooks Kiro</label>
+<label><input type="checkbox" data-l="kiro-session" checked>Sessão</label>
+<label><input type="checkbox" data-l="os-exec" checked>Processos</label>
+<input type="search" id="q" placeholder="filtrar…"><span id="stats"></span></header>
+<main id="list"></main>
+<script>
+const C={"claude":"var(--claude)","kiro-hook":"var(--hook)","kiro-session":"var(--sess)","os-exec":"var(--exec)"};
+const list=document.getElementById('list'),q=document.getElementById('q'),stats=document.getElementById('stats');
+let n=0,b=0;
+function body(e){const v=e.input??e.args??e.data??e.prompt??e.response;return typeof v==='string'?v:JSON.stringify(v,null,2)}
+function visible(el){const on=[...document.querySelectorAll('[data-l]')].filter(x=>x.checked).map(x=>x.dataset.l);
+  return on.includes(el.dataset.layer)&&(!q.value||el.textContent.toLowerCase().includes(q.value.toLowerCase()))}
+function refilter(){for(const el of list.children)el.style.display=visible(el)?'':'none'}
+document.querySelectorAll('[data-l]').forEach(x=>x.onchange=refilter);q.oninput=refilter;
+new EventSource('/events').onmessage=m=>{let e;try{e=JSON.parse(m.data)}catch{return}
+  const d=document.createElement('div');d.className='ev';d.dataset.layer=e.layer;d.style.setProperty('--c',C[e.layer]||'var(--mut)');
+  const h=document.createElement('div');h.className='h';
+  h.innerHTML=`<span>${new Date(e.ts*1000).toLocaleTimeString('pt-BR')}</span><span class="l"></span><span></span>`+(e.blocked?'<span class="blk">BLOQUEADO</span>':'');
+  h.children[1].textContent=e.layer;h.children[2].textContent=[e.event,e.tool,e.pid&&('pid '+e.pid)].filter(Boolean).join(' · ');
+  const p=document.createElement('pre');p.textContent=body(e)||'';d.append(h,p);d.onclick=()=>d.classList.toggle('open');
+  list.prepend(d);d.style.display=visible(d)?'':'none';n++;if(e.blocked)b++;stats.textContent=`${n} eventos · ${b} bloqueados`;
+  if(list.children.length>2000)list.lastChild.remove()};
+</script></body></html>
